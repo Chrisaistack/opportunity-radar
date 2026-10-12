@@ -1,0 +1,40 @@
+name: Opportunity Radar prototype
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '18 8 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: opportunity-radar
+  cancel-in-progress: false
+jobs:
+  research:
+    # Public repository + standard runner; no paid runners or artifact storage.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+      - name: Collect live planning signals
+        run: python radar.py --limit 1000
+      - name: Write report to run summary (no storage charges)
+        shell: python
+        run: |
+          import csv, html, json, os, pathlib
+          output = pathlib.Path('output')
+          meta = json.loads((output / 'run.json').read_text(encoding='utf-8'))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+              f.write('# Opportunity Radar — England research report\n\n')
+              f.write('Unverified keyword signals; incomplete coverage. No outreach is sent.\n\n')
+              f.write('```json\n' + json.dumps(meta, indent=2) + '\n```\n\n')
+              if meta['limit_reached']:
+                  f.write('**Collection limit reached; more records may exist.**\n\n')
+              for row in csv.DictReader((output / 'signals.csv').open(encoding='utf-8')):
+                  f.write('<p><b>Score ' + row['score'] + '</b> — ' + html.escape(row['description']) +
+                          ' <a href="' + html.escape(row['source_url'], quote=True) + '">Source</a></p>\n')
