@@ -22,7 +22,7 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -v
       - name: Collect live planning signals
-        run: python radar.py --limit 1000
+        run: python radar.py --source london --limit 1000
       - name: Write report to run summary (no storage charges)
         shell: python
         run: |
@@ -30,11 +30,14 @@ jobs:
           output = pathlib.Path('output')
           meta = json.loads((output / 'run.json').read_text(encoding='utf-8'))
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
-              f.write('# Opportunity Radar — England research report\n\n')
+              f.write('# Opportunity Radar — London research report\n\n')
               f.write('Unverified keyword signals; incomplete coverage. No outreach is sent.\n\n')
               f.write('```json\n' + json.dumps(meta, indent=2) + '\n```\n\n')
               if meta['limit_reached']:
                   f.write('**Collection limit reached; more records may exist.**\n\n')
-              for row in csv.DictReader((output / 'signals.csv').open(encoding='utf-8')):
+              f.write('Source: [Planning London Datahub](https://planninglondondatahub.london.gov.uk/), Greater London Authority and London planning authorities. Dates are validation dates.\n\n')
+              f.write('Showing the top 100 keyword matches. Residential and decided applications may be included; check status and availability.\n\n')
+              for row in list(csv.DictReader((output / 'signals.csv').open(encoding='utf-8')))[:100]:
+                  f.write('<p>' + html.escape(row['borough'] + ' | ' + row['reference'] + ' | ' + row['application_status']) + '</p>\n')
                   f.write('<p><b>Score ' + row['score'] + '</b> — ' + html.escape(row['description']) +
                           ' <a href="' + html.escape(row['source_url'], quote=True) + '">Source</a></p>\n')
