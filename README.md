@@ -1,82 +1,88 @@
-# Opportunity Radar — £0 research prototype
+# Opportunity Radar — free London planning monitor
 
-**Status checked 12 October 2026:** the API is reachable, but the official
-[planning-application dataset](https://www.planning.data.gov.uk/dataset/planning-application)
-lists **0 records and no data providers**. Live queries since 1 October 2026 and
-1 May 2025 both returned zero records. This is not currently a working lead feed.
-The source covers England, not the whole UK. A scheduled run can check for future
-data availability, but cannot create opportunities from an empty dataset.
+**Live source verified 22 October 2026:** Planning London Datahub, published by the
+Greater London Authority and London planning authorities. A live 30-day query found
+5,322 applications; the newest 1,000 yielded 332 unverified keyword matches.
+One record lacked a description. Counts change as boroughs update their records.
 
-No paid services, API keys, customer accounts, payments, or sales outreach are used.
-Python 3.12 or later is sufficient; there are no third-party Python dependencies.
+This initial feed covers **London only**. It does not cover the whole UK.
+Applications include residential work and decided cases. A keyword match is not a
+qualified lead, available contract, permission to start work, or outreach consent.
 
-## Run locally
+## Run
+
+Python 3.12+; no packages, accounts, paid API keys or subscriptions required.
 
 ```sh
 python -m unittest discover -s tests -v
+python radar.py --source london --limit 1000
 python radar.py --demo --output demo-output
-python radar.py --since 2026-10-01 --limit 1000
 ```
 
-The normal run writes `output/report.html`, `output/signals.csv`, and `output/run.json`.
-The default date is 30 days before execution. Limits must be 1–1000 records;
-requests paginate in batches of up to 100. Reaching the chosen limit is flagged in
-run metadata: this is bounded sampling, not a guarantee of complete collection.
-An HTTP failure or malformed response fails the run; fictional data is used only
-with `--demo`. Run metadata states whether the source is live or fictional.
-Existing output files may remain after a failed local run: always check the exit
-status and `collected_at_utc` before relying on a report.
+Outputs: `output/report.html`, `output/signals.csv`, `output/run.json`.
+The CSV includes borough, council reference, planning status, and the council link.
+Dates are **validation dates**, not necessarily submission dates. Default window:
+last 30 days. `--since YYYY-MM-DD` changes the start. Records are sorted by newest
+validation date, then application ID, and fetched in pages of 100, up to a 1–1000
+record limit. Metadata reports the matching source total, missing descriptions,
+and whether the collection limit leaves more records unprocessed.
 
-## Weekly GitHub collection at £0
+Duplicate IDs are removed within a run. There is no history or deduplication
+across weekly reports; recent applications may appear repeatedly. Live source
+updates during pagination can change the sample. Complete coverage is not claimed.
+The report ranks by keyword score; the collection itself samples newest records,
+not the highest scoring records across all London applications.
 
-Use a **public repository** with `.github/workflows/prototype.yml` on the default
-branch. The job refuses to execute for a private repository. It uses a standard
-Ubuntu runner, no cache, no paid integrations, and no uploaded Actions artifacts.
-Results and collection metadata appear in the Actions run summary; there is no
-hosted public website or customer delivery service.
+An empty London feed, timeout, failed shard, invalid schema or out-of-window date
+fails the run. Missing descriptions are counted and cannot produce text matches.
+No silent fictional fallback is used. After a failed local run, older report files
+may remain: inspect exit status and collection timestamp before relying on them.
 
-The workflow can be started manually and is scheduled on Mondays at 08:18 UTC
-(09:18 during British Summer Time; 08:18 during GMT). Scheduling is best effort;
-GitHub may delay runs and disables scheduled workflows in inactive public repos
-after 60 days. The first successful manual run must be verified after upload.
-Only tests, data collection, and a run summary execute. No messages are sent.
+## Weekly GitHub workflow at £0
 
-[GitHub billing documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
-states standard runners are free in public repositories and run summaries/logs do
-not count toward artifact storage. Do not switch to paid runners, enable paid
-services, or add artifact storage without reviewing costs and obtaining approval.
+Public repository: https://github.com/Chrisaistack/opportunity-radar
 
-## What changed from the starter
+Runs Mondays at 08:18 UTC: 09:18 UK during BST, 08:18 during GMT. GitHub may delay
+scheduled starts. Public schedules can be disabled after 60 days of inactivity.
+Manual dispatch is also available. The job uses standard Ubuntu 24.04, Python
+3.12, read-only repository permissions, a ten-minute timeout and no artifact or
+cache uploads. It refuses to run in a private repository. No paid service, payment
+or outreach is configured.
 
-- Added pagination instead of silently capping every request at 100 records.
-- Rejects malformed API responses instead of treating them as empty success.
-- Validates date and collection limits before making requests.
-- Adds run metadata, limit warnings, source attribution, and an empty-results explanation.
-- Expanded tests from three to eight, including pagination and error handling.
-- Uses a run summary instead of artifact uploads to avoid storage billing.
+Results and metadata appear in the Actions run summary. It displays the top 100
+matches with borough, reference, status, description and council link. The local
+CSV/HTML contains all matches from the bounded collection. The workflow does not
+persist the CSV/HTML or create a hosted website.
 
-## Limitations and next work
+## Sources and reuse
 
-Keyword scores are unverified research signals, not contracts or qualified leads.
-Substring matching can produce false positives. Records are not deduplicated
-across runs; there is no region filter or handling of amendments/cancellations.
-Live non-empty descriptions and field mapping could not be validated because the
-dataset is empty. Pagination is unit-tested, not demonstrated against a non-empty
-live dataset. One unfiltered sample request timed out.
+- GLA overview: https://www.london.gov.uk/programmes-strategies/planning/digital-planning/planning-london-datahub
+- Public explorer: https://planninglondondatahub.london.gov.uk/
+- Official API documentation: https://www.london.gov.uk/sites/default/files/planninglondondatahub_api_connection_technical_documentation_v1.pdf
+- Endpoint: https://planningdata.london.gov.uk/api-guest/applications/_search
 
-To produce useful opportunities, select a region and verify an alternative source
-with actual application descriptions, reuse terms, stable identifiers, and dates.
-Then add source-specific integration tests, geography filtering, deduplication,
-and human review. No additional sources are integrated yet.
+The official documentation provides read-only guest access and a public
+`X-API-AllowRequest` header value. This is a published access constant, not a
+personal API credential. The collector requests only identifiers, descriptions,
+validation dates, borough, status and source links; no contact details or geometry.
 
-## Source and licence
+Attribution: Planning London Datahub, Greater London Authority and London planning
+authorities. Data is supplied by applicants and authorities and can contain errors.
+Public API access is verified; a blanket licence covering commercial redistribution
+of original application documents has not been established. Original documents and
+maps may have separate rights. This research prototype sends no outreach and does
+not sell or redistribute original documents. Review source-specific reuse terms
+before commercial delivery. No code licence has been selected by the owner.
 
-[Planning Data API documentation](https://www.planning.data.gov.uk/docs) documents
-the `start_date_year`, `start_date_month`, `start_date_day`, `start_date_match=since`,
-`limit`, and `offset` parameters used here. The specification is still developing.
+## Legacy feed
 
-Planning Data attribution: © Crown copyright and database right 2026.
-Contains public sector information licensed under the
-[Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
-Demo fixtures are fictional. The data licence does not grant a licence to this
-project's code; no code licence has been chosen by the owner.
+`--source planning-data` retains the original England Planning Data integration for
+diagnostics. It returned zero applications on 12 October 2026 and was still empty
+in the 19 October scheduled run. London is now the default; the legacy feed is
+never silently used as a fallback.
+
+## Remaining work
+
+Choose target boroughs/trades, improve commercial relevance beyond substring
+matching, exclude unsuitable planning statuses, keep a change history and review
+candidates manually. No external messages are sent automatically.
