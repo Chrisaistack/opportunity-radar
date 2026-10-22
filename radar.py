@@ -111,7 +111,9 @@ def analyse(rec):
     url = f'https://www.planning.data.gov.uk/entity/{urllib.parse.quote(entity)}' if entity.isdigit() else 'https://www.planning.data.gov.uk/'
     candidate = str(rec.get('source_url') or '')
     parsed = urllib.parse.urlsplit(candidate)
-    if parsed.scheme == 'https' and parsed.hostname and not parsed.username and not parsed.password:
+    if rec.get('borough'):
+        url = 'https://planninglondondatahub.london.gov.uk/'
+    if parsed.scheme in ('http', 'https') and parsed.hostname and not parsed.username and not parsed.password:
         url = candidate
     return {'entity': entity, 'reference': str(rec.get('reference') or ''),
             'description': str(rec.get('description') or rec.get('name') or '')[:800],
